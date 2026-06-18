@@ -1,0 +1,586 @@
+(function () {
+  "use strict";
+
+  var WP_LANDING_URL = 'https://angrycreative.se/?page_id=14648&preview=true';
+
+  var EMBED = true;
+
+  var GHL_WEBHOOK_URL = 'https://services.leadconnectorhq.com/hooks/NqFyczCDOfGfkFkZBRb3/webhook-trigger/0c9fb463-e456-42be-94e1-395e5c6ad386';
+
+  var paths = [
+    { key: 'self',  lbl: 'Vibe-coda' },
+    { key: 'proto', lbl: 'Delvis vibe' },
+    { key: 'qala',  lbl: 'Anlita proffs' }
+  ];
+
+  var pathNames = {
+    self:  'Vibe-coda det själv',
+    proto: 'Börja själv, anlita sedan proffs',
+    qala:  'Det bör byggas med Qala',
+    app:   'Utanför vårt fokus'
+  };
+
+  var generic = [
+    { id: 'bygger', q: 'Vad är det du bygger?', opts: [
+      { ol: 'En webbshop eller e-handel', od: '', route: 'site', w: { qala: 3, proto: 1 } },
+      { ol: 'En hemsida eller innehållssajt', od: '', route: 'site', w: { qala: 2, proto: 1 } },
+      { ol: 'En medlems- eller kurssajt', od: 'Community, kurser eller inloggat innehåll', route: 'site', w: { qala: 2, proto: 1 } },
+      { ol: 'En webbapp, ett verktyg eller en SaaS', od: '', route: 'app', app: true },
+      { ol: 'Ett experiment eller en intern grej', od: '', route: 'experiment', w: { self: 3 } }
+    ] },
+    { id: 'livslangd', q: 'Hur länge ska det leva?', opts: [
+      { ol: 'Dagar eller veckor, sen slänger jag det', od: '', w: { self: 3 } },
+      { ol: 'Några månader', od: '', w: { self: 2, proto: 2 } },
+      { ol: 'Ett par år', od: '', w: { proto: 2, qala: 1 } },
+      { ol: 'Långsiktigt, det ska bara funka', od: '', w: { qala: 3 } },
+      { ol: 'Det ska bli en central del av verksamheten', od: '', w: { qala: 4 } }
+    ] },
+    { id: 'underhall', q: 'Vem ska underhålla det sen?', opts: [
+      { ol: 'Ingen, det är en engångsgrej', od: '', w: { self: 3 } },
+      { ol: 'Jag själv, så länge det behövs', od: '', w: { self: 2, proto: 1 } },
+      { ol: 'Vi internt, men ingen är utvecklare', od: '', w: { proto: 1, qala: 2 } },
+      { ol: 'Det måste kunna tas över och vidareutvecklas', od: '', w: { qala: 4 } }
+    ] },
+    { id: 'vibecode', q: 'Har du redan vibe-codat något?', opts: [
+      { ol: 'Nej, inte än', od: '', w: { qala: 1, proto: 1 } },
+      { ol: 'Pillat lite', od: 'Lovable, Bolt, Cursor, v0, Replit …', w: { self: 2, proto: 1 } },
+      { ol: 'Byggt en prototyp', od: '', w: { proto: 3, self: 1 } },
+      { ol: 'Byggt något men vill ta det vidare', od: '', w: { proto: 2, qala: 2 } }
+    ] },
+    { id: 'viktigast', q: 'Vad är viktigast just nu?', opts: [
+      { ol: 'Komma igång snabbt och billigt', od: '', w: { self: 3 } },
+      { ol: 'Testa om idén håller', od: '', w: { proto: 3 } },
+      { ol: 'Att det håller över tid', od: '', w: { qala: 3 } },
+      { ol: 'Att det är tryggt och kan skalas', od: '', w: { qala: 3 } }
+    ] }
+  ];
+
+  var specific = {
+    site: [
+      { id: 'saljer', q: 'Ska du sälja något eller ta betalt online?', opts: [
+        { ol: 'Ja, en webbshop med många produkter', od: '', w: { qala: 4 } },
+        { ol: 'Ja, men bara några få produkter eller tjänster', od: '', w: { qala: 2, proto: 1 } },
+        { ol: 'Nej, men inloggning eller medlemskap', od: '', w: { qala: 2, proto: 1 } },
+        { ol: 'Nej, mest innehåll och information', od: '', w: { proto: 1, self: 1 } }
+      ] },
+      { id: 'marknader', q: 'Ska det finnas på flera språk eller marknader?', opts: [
+        { ol: 'Ja, flera länder eller språk', od: '', w: { qala: 3 } },
+        { ol: 'Kanske längre fram', od: '', w: { qala: 1, proto: 1 } },
+        { ol: 'Nej, en marknad räcker', od: '', w: { self: 1, proto: 1 } }
+      ] },
+      { id: 'integrationer', q: 'Behöver det kopplas ihop med andra system?', opts: [
+        { ol: 'Ja, betalning och affärssystem', od: 'Klarna, lager, ERP, bokning …', w: { qala: 4 } },
+        { ol: 'Bara betalning', od: '', w: { qala: 2, proto: 1 } },
+        { ol: 'Nej, det står för sig själv', od: '', w: { proto: 1, self: 1 } }
+      ] },
+      { id: 'redaktor', q: 'Vem ska uppdatera innehållet löpande?', opts: [
+        { ol: 'Vi själva, utan att behöva en utvecklare', od: '', w: { qala: 3 } },
+        { ol: 'En utvecklare eller byrå sköter det', od: '', w: { qala: 1, proto: 1 } },
+        { ol: 'Det behöver knappt ändras', od: '', w: { self: 1, proto: 1 } }
+      ] },
+      { id: 'migrering', q: 'Byter du från en befintlig sajt eller plattform?', opts: [
+        { ol: 'Ja, vi flyttar från en befintlig lösning', od: 'Shopify, Wix, äldre WordPress …', w: { qala: 3 } },
+        { ol: 'Nej, vi börjar från noll', od: '', w: { proto: 1, qala: 1 } },
+        { ol: 'Vet inte än', od: '', w: { proto: 1 } }
+      ] }
+    ],
+    app: [
+      { id: 'appfunktion', q: 'Vad ska den i grunden göra?', opts: [
+        { ol: 'Automatisera eller koppla ihop verktyg', od: '', w: {} },
+        { ol: 'Hantera data, flöden eller logik', od: '', w: {} },
+        { ol: 'Erbjuda konton, dashboard eller en tjänst', od: '', w: {} },
+        { ol: 'Något annat', od: '', w: {} }
+      ] },
+      { id: 'anvandare', q: 'Vilka ska använda den?', opts: [
+        { ol: 'Bara vi internt', od: '', w: {} },
+        { ol: 'Våra kunder', od: '', w: {} },
+        { ol: 'Öppet för vem som helst', od: '', w: {} }
+      ] }
+    ],
+    experiment: []
+  };
+
+  var landing = {
+    values: [
+      { h: 'Lär dig när vibe-coding räcker', p: 'Ibland räcker det att vibe-coda. Ibland håller det inte. Vi hjälper dig se skillnaden.' },
+      { h: 'Ett rakt svar', p: 'Inget säljsnack. Du får veta vad som passar ditt projekt.' },
+      { h: 'Tar två minuter', p: 'Några snabba frågor, sen får du svaret i mejlen.' }
+    ],
+    forYou: [
+      'Har vibe-codat något och undrar om det håller',
+      'Vill komma igång snabbt utan att fastna i teknik',
+      'Har en idé du vill testa innan du satsar',
+      'Vill veta när du bör bygga något som håller'
+    ],
+    ways: [
+      { h: 'Vibe-coda det själv',
+        sub: 'Bygg det själv med AI. Snabbt och billigt.',
+        best: ['Experiment och interna grejer', 'Testa en idé innan du satsar'],
+        trade: ['Inte byggt för att hålla länge', 'Svårt att skala och underhålla'] },
+      { h: 'Börja själv, anlita sedan proffs',
+        sub: 'Kom igång och testa idén själv, ta sedan in proffs som bygger det ordentligt.',
+        best: ['Idéer som ska testas först', 'Komma igång nu utan att fastna'],
+        trade: ['Prototypen byggs oftast om', 'Funkar bäst om du lämnar över i rätt läge'] },
+      { h: 'Anlita proffs',
+        sub: 'Vi bygger det åt dig, med AI där det hjälper, men ordentligt så det håller och går att underhålla.',
+        best: ['Ska leva, växa och underhållas', 'Kräver säkerhet eller driftsäkerhet'],
+        trade: ['Större insats från start', 'Bör planeras ordentligt först'] }
+    ],
+    factors: ['Livslängd', 'Underhåll', 'Säkerhet', 'Skala', 'Budget', 'Hur kritiskt det är']
+  };
+
+  function el(tag, attrs, kids) {
+    var n = document.createElement(tag);
+    if (attrs) for (var k in attrs) {
+      if (k === 'class') n.className = attrs[k];
+      else if (k === 'html') n.innerHTML = attrs[k];
+      else if (k === 'text') n.textContent = attrs[k];
+      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
+      else if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+    }
+    if (kids != null) (Array.isArray(kids) ? kids : [kids]).forEach(function (c) {
+      if (c == null) return;
+      n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return n;
+  }
+  var EMAIL_RE = /^\S+@\S+\.\S+$/;
+  var ADVANCE = 360;
+
+  var STORE = 'ac_quiz_v8';
+  function loadState() {
+    try { var s = JSON.parse(localStorage.getItem(STORE)); if (s && s.ans) return s; } catch (e) {}
+    return null;
+  }
+  function persist() {
+    try { localStorage.setItem(STORE, JSON.stringify({ screen: S.screen, pos: S.pos, ans: S.ans })); } catch (e) {}
+  }
+
+  var saved = loadState();
+  var S = {
+    screen: saved ? saved.screen : 'landing',
+    pos: saved ? saved.pos : 0,
+    ans: saved ? saved.ans : {}
+  };
+  var lock = false;
+  var root = document.getElementById('ac-root');
+
+  function routeOf() {
+    var a = S.ans[generic[0].id];
+    if (!a) return null;
+    var o = generic[0].opts[a.i];
+    return (o && o.route) || null;
+  }
+  function flow() {
+    var f = generic.slice();
+    var r = routeOf();
+    if (r && specific[r]) f = f.concat(specific[r]);
+    return f;
+  }
+  function scores() {
+    var sc = { self: 0, proto: 0, qala: 0 };
+    flow().forEach(function (qq) {
+      var a = S.ans[qq.id];
+      if (a && a.w) for (var k in a.w) sc[k] += a.w[k];
+    });
+    return sc;
+  }
+  function leadKey(sc) {
+    var lead = paths[0].key, v = -1;
+    paths.forEach(function (p) { if (sc[p.key] > v) { v = sc[p.key]; lead = p.key; } });
+    return lead;
+  }
+  function pcts(sc) {
+    var total = paths.reduce(function (s, p) { return s + sc[p.key]; }, 0);
+    var out = {};
+    paths.forEach(function (p) { out[p.key] = total > 0 ? Math.round(sc[p.key] / total * 100) : 0; });
+    return out;
+  }
+  function currentLead() {
+    if (routeOf() === 'app') return 'app';
+    return leadKey(scores());
+  }
+
+  function renderLanding() {
+    var L = landing;
+
+    var hero = el('section', { class: 'ac-hero' }, [
+      el('h1', { class: 'ac-h1', html: 'Ska du <span class="hl">vibe-coda</span> ditt projekt eller anlita proffs?' }),
+      el('p', { class: 'ac-hero-sub' }, 'Du kan vibe-coda nästan vad som helst idag. Frågan är om det håller över tid. Svara på några snabba frågor så får du svaret.'),
+      el('div', null, el('button', { class: 'ac-cta', onClick: start }, 'Kom igång'))
+    ]);
+
+    var values = el('section', { class: 'ac-section' },
+      el('div', { class: 'ac-values' }, L.values.map(function (v) {
+        return el('div', { class: 'ac-value' }, [el('h3', null, v.h), el('p', null, v.p)]);
+      })));
+
+    var forYou = el('section', { class: 'ac-section' }, [
+      el('h2', { class: 'ac-h2' }, 'Det här är för dig som…'),
+      el('ul', { class: 'ac-check' }, L.forYou.map(function (li) { return el('li', null, li); }))
+    ]);
+
+    var ways = el('section', { class: 'ac-section' }, [
+      el('h2', { class: 'ac-h2' }, 'Tre sätt att bygga det'),
+      el('div', { class: 'ac-ways' }, L.ways.map(function (w, i) {
+        return el('div', { class: 'ac-way' }, [
+          el('div', { class: 'ac-way-no' }, '0' + (i + 1)),
+          el('h3', null, w.h),
+          el('p', { class: 'ac-way-sub' }, w.sub),
+          el('div', { class: 'ac-way-k' }, 'BÄST FÖR'),
+          el('ul', null, w.best.map(function (b) { return el('li', null, b); })),
+          el('div', { class: 'ac-way-k' }, 'TÄNK PÅ'),
+          el('ul', null, w.trade.map(function (b) { return el('li', null, b); }))
+        ]);
+      }))
+    ]);
+
+    var factors = el('section', { class: 'ac-section' }, [
+      el('h2', { class: 'ac-h2' }, 'Vad bedömningen tittar på'),
+      el('div', { class: 'ac-tags' }, L.factors.map(function (f) { return el('span', null, f); }))
+    ]);
+
+    var closing = el('section', { class: 'ac-section ac-closing' }, [
+      el('h2', { class: 'ac-h2' }, 'Redo att komma igång?'),
+      el('p', null, 'Några frågor. Inget säljsamtal. Vi mejlar svaret.'),
+      el('button', { class: 'ac-cta', onClick: start }, 'Kom igång')
+    ]);
+
+    return el('div', { class: 'ac-landing' }, [hero, values, forYou, ways, factors, closing]);
+  }
+
+  var barWrap = null, barFills = {}, barSegs = {}, barPcts = {};
+
+  function buildBar() {
+    barFills = {}; barSegs = {}; barPcts = {};
+    var segs = paths.map(function (p) {
+      var fill = el('div', { class: 'fill' });
+      var pct = el('div', { class: 'pct' }, '0%');
+      var seg = el('div', { class: 'ac-seg' }, [
+        el('div', { class: 'track' }, fill),
+        el('div', { class: 'lbl' }, p.lbl),
+        pct
+      ]);
+      barFills[p.key] = fill; barSegs[p.key] = seg; barPcts[p.key] = pct;
+      return seg;
+    });
+    barWrap = el('div', { class: 'ac-bar-wrap' },
+      el('div', { class: 'ac-bar', role: 'img', 'aria-label': 'Fördelning mellan vägarna' }, segs));
+    return barWrap;
+  }
+
+  function updateBar() {
+    if (!barWrap) return;
+    var sc = scores();
+    var p = pcts(sc);
+    var lead = leadKey(sc);
+    var hasData = paths.some(function (x) { return sc[x.key] > 0; });
+    paths.forEach(function (path) {
+      var isLead = hasData && path.key === lead;
+      barFills[path.key].style.width = p[path.key] + '%';
+      barPcts[path.key].textContent = p[path.key] + '%';
+      barSegs[path.key].className = 'ac-seg' + (isLead ? ' is-lead' : '');
+    });
+  }
+
+  var cardHolder;
+
+  function renderCard() {
+    var f = flow();
+    if (S.pos >= f.length) { setScreen('gate'); return; }
+    var item = f[S.pos];
+    var prev = S.ans[item.id];
+    var prevSel = (prev && prev.i != null) ? prev.i : -1;
+
+    var opts = el('div', { class: 'ac-opts card-outline' }, item.opts.map(function (o, i) {
+      var btn = el('button', {
+        class: 'ac-opt' + (prevSel === i ? ' is-selected' : ''),
+        type: 'button',
+        onClick: function () {
+          if (lock) return;
+          var sibs = opts.querySelectorAll('.ac-opt');
+          for (var s = 0; s < sibs.length; s++) sibs[s].classList.remove('is-selected');
+          btn.classList.add('is-selected');
+          onAnswer(i);
+        }
+      }, [
+        el('span', { class: 'ac-opt-body' }, [
+          el('span', { class: 'ol' }, o.ol),
+          o.od ? el('span', { class: 'od' }, o.od) : null
+        ]),
+        el('span', { class: 'ac-opt-arrow', 'aria-hidden': 'true' }, '→')
+      ]);
+      return btn;
+    }));
+
+    var pct = f.length ? (S.pos / f.length * 100) : 0;
+
+    var card = el('div', { class: 'ac-qcard' }, [
+      el('div', { class: 'ac-qnum' },
+        el('span', { class: 'ac-qbar' }, el('span', { style: 'width:' + pct + '%' }))
+      ),
+      el('h2', { class: 'ac-q' }, item.q),
+      opts,
+      el('button', { class: 'ac-back', type: 'button', onClick: onBack }, S.pos > 0 ? '← Tillbaka' : '← Till startsidan')
+    ]);
+
+    cardHolder.innerHTML = '';
+    cardHolder.appendChild(card);
+    updateBar();
+    requestAnimationFrame(postHeight);
+  }
+
+  function renderQuiz() {
+    cardHolder = el('div', { class: 'ac-card' });
+    return el('div', { class: 'ac-quiz' }, [buildBar(), cardHolder]);
+  }
+
+  function onAnswer(i) {
+    if (lock) return;
+    lock = true;
+    var f = flow();
+    var item = f[S.pos];
+    var o = item.opts[i];
+    var prevRoute = routeOf();
+    S.ans[item.id] = { i: i, label: o.ol, w: o.w || {} };
+
+    if (item.id === generic[0].id && routeOf() !== prevRoute) {
+      var keep = {};
+      flow().forEach(function (qq) { if (S.ans[qq.id]) keep[qq.id] = S.ans[qq.id]; });
+      S.ans = keep;
+    }
+
+    updateBar();
+    persist();
+    setTimeout(function () {
+      var ff = flow();
+      if (S.pos + 1 < ff.length) { S.pos++; renderCard(); persist(); }
+      else { setScreen('gate'); }
+      lock = false;
+    }, ADVANCE);
+  }
+
+  function onBack() {
+    if (S.screen === 'gate') {
+      S.pos = Math.max(0, flow().length - 1);
+      setScreen('quiz');
+      return;
+    }
+    if (S.pos === 0) { goToLanding(); return; }
+    S.pos--;
+    renderCard();
+    persist();
+    window.scrollTo(0, 0);
+  }
+
+  function buildHandoff(lead, name, details, email) {
+    var params = [
+      'path=' + encodeURIComponent(lead),
+      'path_name=' + encodeURIComponent(pathNames[lead] || '')
+    ];
+    var lines = [];
+    flow().forEach(function (qq) {
+      var a = S.ans[qq.id];
+      if (a) {
+        params.push(qq.id + '=' + encodeURIComponent(a.label));
+        lines.push(qq.q + '\n- ' + a.label);
+      }
+    });
+    params.push('svar=' + encodeURIComponent(lines.join('\n\n')));
+    if (name) {
+      var clean = name.trim().replace(/\s+/g, ' ');
+      var capWord = function (s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+      var cap = clean.split(' ').map(capWord).join(' ');
+      var np = cap.split(' ');
+      params.push('name=' + encodeURIComponent(cap));
+      params.push('first_name=' + encodeURIComponent(np.shift() || ''));
+      params.push('last_name=' + encodeURIComponent(np.join(' ')));
+    }
+    if (details) params.push('details=' + encodeURIComponent(details));
+    if (email) params.push('email=' + encodeURIComponent(email));
+    return params.join('&');
+  }
+
+  function submitToCRM(handoff) {
+    if (!GHL_WEBHOOK_URL) return Promise.resolve();
+    return fetch(GHL_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: handoff
+    }).catch(function () {  });
+  }
+
+  function renderGate() {
+    var lead = currentLead();
+    var isApp = lead === 'app';
+    var state = { name: '', email: '', details: '', consent: false, touched: {}, attempted: false };
+
+    function errs() {
+      var e = {};
+      if (!state.name.trim()) e.name = 'Fyll i ditt namn.';
+      if (!state.email.trim()) e.email = 'Fyll i din e-post.';
+      else if (!EMAIL_RE.test(state.email.trim())) e.email = 'Ange en giltig e-postadress.';
+      if (!state.details.trim()) e.details = 'Beskriv projektet kort.';
+      if (!state.consent) e.consent = 'Du behöver godkänna för att vi ska kunna mejla dig.';
+      return e;
+    }
+
+    var refs = {};
+
+    function field(id, labelText, kind) {
+      var input = kind === 'textarea'
+        ? el('textarea', { id: 'ac-' + id, maxlength: 2000, placeholder: id === 'details' ? 'Berätta kort om projektet…' : '' })
+        : el('input', { id: 'ac-' + id, type: id === 'email' ? 'email' : 'text',
+            placeholder: id === 'name' ? 'För- och efternamn' : (id === 'email' ? 'namn@företag.se' : '') });
+      var err = el('div', { class: 'ac-err' });
+      err.style.display = 'none';
+      var wrap = el('div', { class: 'ac-field' }, [
+        el('label', { for: 'ac-' + id, html: labelText + ' <span class="req">*</span>' }),
+        input, err
+      ]);
+      input.addEventListener('input', function () { state[id] = input.value; refresh(); });
+      input.addEventListener('blur', function () { state.touched[id] = true; refresh(); });
+      refs[id] = { wrap: wrap, err: err };
+      return wrap;
+    }
+
+    var nameF = field('name', 'Namn', 'input');
+    var emailF = field('email', 'E-post', 'input');
+    var detailsF = field('details', 'Om projektet', 'textarea');
+
+    var consentInput = el('input', { type: 'checkbox' });
+    var consentErr = el('div', { class: 'ac-err ac-err-consent' });
+    consentErr.style.display = 'none';
+    var consentLabel = el('label', { class: 'ac-consent' }, [
+      consentInput,
+      el('span', { html: 'Ja, jag vill att Angry Creative kontaktar mig om mitt resultat och relevanta tjänster. <span class="req">*</span>' })
+    ]);
+    consentInput.addEventListener('change', function () {
+      state.consent = consentInput.checked; state.touched.consent = true; refresh();
+    });
+    refs.consent = { wrap: consentLabel, err: consentErr };
+
+    var submitBtn = el('button', { class: 'ac-submit', type: 'button' }, isApp ? 'Skicka' : 'Maila rekommendation');
+    var backBtn = el('button', { class: 'ac-back', type: 'button', onClick: onBack }, '← Tillbaka till frågorna');
+
+    function refresh() {
+      var e = errs();
+      ['name', 'email', 'details', 'consent'].forEach(function (f) {
+        var show = (state.touched[f] || state.attempted) ? e[f] : null;
+        var r = refs[f];
+        r.wrap.classList.toggle('has-error', !!show);
+        r.err.textContent = show || '';
+        r.err.style.display = show ? '' : 'none';
+      });
+    }
+
+    submitBtn.addEventListener('click', function () {
+      state.attempted = true;
+      refresh();
+      if (Object.keys(errs()).length === 0) {
+        var handoff = buildHandoff(lead, state.name, state.details, state.email);
+        submitToCRM(handoff);
+        showDone(state.email);
+      }
+    });
+
+    var form = el('div', { class: 'ac-gate' }, [
+      el('h2', null, 'Nästan klar'),
+      el('p', { class: 'sub' }, isApp ? 'Lämna din mejl och en kort beskrivning, så skickar vi ett par tips som kan hjälpa dig vidare.' : 'Berätta kort om projektet så blir rekommendationen mer träffsäker. Vi mejlar resultatet till dig.'),
+      nameF, emailF, detailsF,
+      consentLabel, consentErr,
+      submitBtn, backBtn
+    ]);
+
+    return el('div', { class: 'ac-quiz' }, el('div', { class: 'ac-card' }, form));
+  }
+
+  var partialRec = {
+    self:  'att du kan vibe-coda det här själv',
+    proto: 'att börja själv och ta in hjälp när det ska göras ordentligt',
+    qala:  'att ta in proffs som bygger det ordentligt'
+  };
+
+  function showDone(email) {
+    var lead = currentLead();
+    var kids;
+    if (lead === 'app') {
+      kids = [
+        el('h2', null, 'Tack!'),
+        el('p', { class: 'sub' }, 'Det här ligger utanför vad vi vanligtvis bygger. Vi fokuserar på webbplatser och e-handel i WordPress och WooCommerce.'),
+        el('p', { class: 'sub last', html: 'Vi mejlar ett par tips till <b>' + (email || '') + '</b> som kan hjälpa dig vidare.' }),
+        el('button', { class: 'ac-restart', type: 'button', onClick: restart }, 'Börja om')
+      ];
+    } else {
+      kids = [
+        el('div', { class: 'ac-done-check', 'aria-hidden': 'true' }, '✓'),
+        el('h2', null, 'Tack!'),
+        el('p', { class: 'sub', html: 'Utifrån dina svar lutar det mot <b>' + partialRec[lead] + '</b>.' }),
+        el('p', { class: 'sub last', html: 'Vi mejlar en mer utförlig rekommendation till <b>' + (email || '') + '</b>.' }),
+        el('button', { class: 'ac-restart', type: 'button', onClick: restart }, 'Börja om')
+      ];
+    }
+    root.innerHTML = '';
+    root.appendChild(el('div', { class: 'ac-quiz' }, el('div', { class: 'ac-card' }, el('div', { class: 'ac-gate ac-gate-done' }, kids))));
+    window.scrollTo(0, 0);
+    requestAnimationFrame(postHeight);
+  }
+
+  function setScreen(name) {
+    S.screen = name;
+    persist();
+    root.innerHTML = '';
+    if (name === 'landing') root.appendChild(renderLanding());
+    else if (name === 'quiz') { root.appendChild(renderQuiz()); renderCard(); }
+    else if (name === 'gate') root.appendChild(renderGate());
+    window.scrollTo(0, 0);
+    requestAnimationFrame(postHeight);
+  }
+
+  function goToLanding() {
+    if (EMBED && WP_LANDING_URL) {
+      try { localStorage.removeItem(STORE); } catch (e) {}
+      var t = window.top || window.parent || window;
+      try { t.location.href = WP_LANDING_URL; return; } catch (e) {}
+      location.href = WP_LANDING_URL;
+      return;
+    }
+    setScreen('landing');
+  }
+
+  function postHeight() {
+    if (!EMBED) return;
+    var h = Math.max(
+      document.documentElement ? document.documentElement.scrollHeight : 0,
+      document.body ? document.body.scrollHeight : 0
+    );
+    var target = window.parent || window.top;
+    try { target.postMessage({ acQuiz: true, height: h }, '*'); } catch (e) {}
+  }
+
+  function start() {
+    S.pos = 0; S.ans = {};
+    setScreen('quiz');
+  }
+
+  function restart() {
+    S.pos = 0; S.ans = {};
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    goToLanding();
+  }
+
+  var _logo = document.getElementById('ac-logo');
+  if (_logo) _logo.addEventListener('click', function () { goToLanding(); });
+
+  if (EMBED) {
+    if (document.body) document.body.classList.add('ac-embed');
+    if (S.screen === 'landing') { S.screen = 'quiz'; S.pos = 0; S.ans = {}; }
+    if (window.ResizeObserver) { try { new ResizeObserver(function () { postHeight(); }).observe(document.body); } catch (e) {} }
+    window.addEventListener('resize', postHeight);
+    window.addEventListener('load', postHeight);
+  }
+
+  setScreen(S.screen);
+  postHeight();
+})();
