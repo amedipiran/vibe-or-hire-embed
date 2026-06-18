@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var WP_LANDING_URL = 'https://angrycreative.se/?page_id=14648&preview=true';
+  var WP_LANDING_URL = 'https://angrycreative.se/vibe-eller-proffs/';
 
   var EMBED = true;
 
